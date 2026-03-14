@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import io
 
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
@@ -7,7 +8,7 @@ st.set_page_config(page_title="Processador de Dados PNP", page_icon="📊", layo
 
 st.title("📊 Processador de Dados - Etnia, Renda e Cotas")
 st.markdown("""
-Faça o upload dos arquivos **Excel (.xlsx)** originais abaixo. O sistema fará o cruzamento dos dados usando o **CPF** e gerará os arquivos **.csv** finais e corrigidos para download.
+Faça o upload dos arquivos **Excel (.xlsx)** originais abaixo. O sistema fará o cruzamento dos dados usando o **CPF** e gerará os arquivos **.xlxs** finais e corrigidos para download.
 """)
 
 # --- DICIONÁRIOS DE MAPEAMENTO ---
@@ -83,11 +84,13 @@ def processar_dados(file_qa, file_etnia, file_renda, file_cota):
     return pnp_etnia, pnp_renda, pnp_cota
 
 
-# Função para converter DataFrame para CSV formatado para o Brasil
+# Função para converter DataFrame para Excel em memória (bytes)
 @st.cache_data
-def to_csv(df):
-    # sep=';' e utf-8-sig garantem que o Excel abra o CSV com acentos e colunas corretas
-    return df.to_csv(index=False, sep=';', encoding='utf-8-sig').encode('utf-8-sig')
+def to_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Dados_Corrigidos')
+    return output.getvalue()
 
 
 # --- INTERFACE DO USUÁRIO (FRONTEND) ---
@@ -105,47 +108,47 @@ with col2:
 if file_qa and file_etnia and file_renda and file_cota:
     st.success("Todos os arquivos foram carregados com sucesso!")
 
-    if st.button("🚀 Processar e Gerar CSVs", use_container_width=True):
+    if st.button("🚀 Processar e Gerar os Arquivos para PNP", use_container_width=True):
         with st.spinner("Lendo arquivos Excel e cruzando dados... Isso pode levar alguns segundos."):
 
             try:
                 # Chama a função de processamento
                 df_etnia, df_renda, df_cota = processar_dados(file_qa, file_etnia, file_renda, file_cota)
 
-                # Gera os arquivos CSV em memória
-                csv_etnia = to_csv(df_etnia)
-                csv_renda = to_csv(df_renda)
-                csv_cota = to_csv(df_cota)
+                # Gera os arquivos Excel em memória
+                excel_etnia = to_excel(df_etnia)
+                excel_renda = to_excel(df_renda)
+                excel_cota = to_excel(df_cota)
 
-                st.subheader("2. Download dos Resultados (.csv)")
-                st.markdown("Os dados foram processados! Baixe os arquivos CSV gerados abaixo:")
+                st.subheader("2. Download dos Resultados (.xlsx)")
+                st.markdown("Os dados foram processados! Baixe as planilhas Excel geradas abaixo:")
 
                 # Botões de Download
                 st.download_button(
-                    label="📥 Baixar Fonte_PNP_Etnia_Final.csv",
-                    data=csv_etnia,
-                    file_name="Fonte_PNP_Etnia_Final.csv",
-                    mime="text/csv"
+                    label="📥 Baixar Fonte_PNP_Etnia_Final.xlsx",
+                    data=excel_etnia,
+                    file_name="Fonte_PNP_Etnia_Final.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
                 st.download_button(
-                    label="📥 Baixar Fonte_PNP_Renda_Final.csv",
-                    data=csv_renda,
-                    file_name="Fonte_PNP_Renda_Final.csv",
-                    mime="text/csv"
+                    label="📥 Baixar Fonte_PNP_Renda_Final.xlsx",
+                    data=excel_renda,
+                    file_name="Fonte_PNP_Renda_Final.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
                 st.download_button(
-                    label="📥 Baixar Fonte_PNP_Cota_Final.csv",
-                    data=csv_cota,
-                    file_name="Fonte_PNP_Cota_Final.csv",
-                    mime="text/csv"
+                    label="📥 Baixar Fonte_PNP_Cota_Final.xlsx",
+                    data=excel_cota,
+                    file_name="Fonte_PNP_Cota_Final.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
                 st.balloons()  # Efeito visual de sucesso
 
             except Exception as e:
                 st.error(
-                    f"Ocorreu um erro durante o processamento. Certifique-se de que os arquivos estão no formato correto. Erro: {e}")
-else:
-    st.info("Por favor, faça o upload dos 4 arquivos Excel (.xlsx) para habilitar o processamento.")
+                    f"Ocorreu um erro durante o processamento. Certifique-se de que as planilhas estão no formato correto. Erro: {e}")
+    else:
+        st.info("Por favor, faça o upload dos 4 arquivos Excel (.xlsx) para habilitar o processamento.")

@@ -2,14 +2,21 @@ import pandas as pd
 import streamlit as st
 import io
 
-
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Processador de Dados PNP", page_icon="📊", layout="centered")
 
-st.title("📊 Processador de Dados - PNP (Etnia, Renda e Cotas)")
+st.title("📊 Processador de Dados - PNP")
 st.markdown("""
-Faça o upload dos arquivos **Excel (.xlsx)** originais abaixo. O sistema fará o cruzamento dos dados usando o **CPF** e gerará os arquivos **.xlxs** finais e corrigidos para download.
+Faça o upload do arquivo base (**Dados QA**) e escolha quais arquivos deseja atualizar (**Etnia, Renda e/ou Cotas**). O sistema cruzará os dados usando o **CPF** e gerará os arquivos corrigidos.
 """)
+
+
+# --- CONTROLE DE ESTADO (MEMÓRIA) ---
+# Função para limpar os botões de download caso o usuário troque de arquivo
+def limpar_resultados():
+    if 'resultados' in st.session_state:
+        del st.session_state['resultados']
+
 
 # --- DICIONÁRIOS DE MAPEAMENTO ---
 map_renda = {
@@ -44,68 +51,63 @@ map_cota = {
     'Processo Seletivo PCD4': 'LI_PCD'
 }
 
-# Lista estrita de categorias de Etnia (baseada na interface oficial)
 valores_validos_etnia = [
-    'Branca',
-    'Preta',
-    'Parda',
-    'Indígena',
-    'Amarela',
-    'Não declarada'
+    'Branca', 'Preta', 'Parda', 'Indígena', 'Amarela', 'Não declarada'
 ]
+
+
 # --- FUNÇÕES AUXILIARES ---
 @st.cache_data
-def processar_dados(file_qa, file_etnia, file_renda, file_cota):
-    # 1. Carregar os dados AGORA LENDO EXCEL (.xlsx)
+def processar_dados(file_qa, file_etnia=None, file_renda=None, file_cota=None):
+    resultados = {}
+
+    # 1. Carregar Dados QA (Obrigatório)
     dados_qa = pd.read_excel(file_qa, dtype={'CPF': str})
-    pnp_etnia = pd.read_excel(file_etnia, dtype={'CPF': str})
-    pnp_renda = pd.read_excel(file_renda, dtype={'CPF': str})
-    pnp_cota = pd.read_excel(file_cota, dtype={'CPF': str})
-
-    # 2. Limpar CPF
-    dados_qa['cpf_key'] = dados_qa['CPF'].str.replace(r'\D', '', regex=True)
-    pnp_etnia['cpf_key'] = pnp_etnia['CPF'].str.replace(r'\D', '', regex=True)
-    pnp_renda['cpf_key'] = pnp_renda['CPF'].str.replace(r'\D', '', regex=True)
-    pnp_cota['cpf_key'] = pnp_cota['CPF'].str.replace(r'\D', '', regex=True)
-
-    # 3. Cruzamento de Dados (Join)
-    lookup_etnia = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['Desc_Cor']
-    dados_qa['renda_formatada'] = dados_qa['Renda Familiar Per Capita SIG'].map(map_renda)
-    lookup_renda = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['renda_formatada']
-    dados_qa['cota_formatada'] = dados_qa['Desc_Forma_Ingresso_Matricula'].map(map_cota)
-    lookup_cota = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['cota_formatada']
-
-    # 4. Atualizações
+    dados_qa['cpf_key'] = dados_qa['CPF'].astype(str).str.replace(r'\D', '', regex=True)
 
     # ---- ETNIA ----
-    # Preenche com dados do QA ou com 'Não declarada' se estiver vazio
-    pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].fillna(pnp_etnia['cpf_key'].map(lookup_etnia)).fillna('Não declarada')
+    if file_etnia is not None:
+        pnp_etnia = pd.read_excel(file_etnia, dtype={'CPF': str})
+        pnp_etnia['cpf_key'] = pnp_etnia['CPF'].astype(str).str.replace(r'\D', '', regex=True)
 
-    # Remove espaços em branco antes ou depois da palavra (ex: "Parda " vira "Parda")
-    pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].astype(str).str.strip()
+        lookup_etnia = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['Desc_Cor']
+        pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].fillna(pnp_etnia['cpf_key'].map(lookup_etnia)).fillna(
+            'Não declarada')
+        pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].astype(str).str.strip()
+        pnp_etnia.loc[~pnp_etnia['Cor/Raça'].isin(valores_validos_etnia), 'Cor/Raça'] = 'Não declarada'
 
-    # Validação estrita: Se o valor NÃO estiver na lista oficial, força virar 'Não declarada'
-    pnp_etnia.loc[~pnp_etnia['Cor/Raça'].isin(valores_validos_etnia), 'Cor/Raça'] = 'Não declarada'
-    pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].fillna(pnp_etnia['cpf_key'].map(lookup_etnia)).fillna('Não Declarada')
+        resultados['etnia'] = pnp_etnia.drop(columns=['cpf_key'])
 
-    # ---- RENDA E COTAS ----
-    pnp_renda['Faixa de Renda'] = pnp_renda['Faixa de Renda'].fillna(pnp_renda['cpf_key'].map(lookup_renda)).fillna(
-        'Não declarada')
+    # ---- RENDA ----
+    if file_renda is not None:
+        pnp_renda = pd.read_excel(file_renda, dtype={'CPF': str})
+        pnp_renda['cpf_key'] = pnp_renda['CPF'].astype(str).str.replace(r'\D', '', regex=True)
 
-    if 'Cota' in pnp_cota.columns:
-        pnp_cota['Cota'] = pnp_cota['Cota'].fillna(pnp_cota['cpf_key'].map(lookup_cota)).fillna('')
-    else:
-        pnp_cota['Cota'] = pnp_cota['cpf_key'].map(lookup_cota).fillna('')
+        dados_qa['renda_formatada'] = dados_qa['Renda Familiar Per Capita SIG'].map(map_renda)
+        lookup_renda = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['renda_formatada']
+        pnp_renda['Faixa de Renda'] = pnp_renda['Faixa de Renda'].fillna(pnp_renda['cpf_key'].map(lookup_renda)).fillna(
+            'Não declarada')
 
-    # Remover a coluna chave temporária
-    pnp_etnia = pnp_etnia.drop(columns=['cpf_key'])
-    pnp_renda = pnp_renda.drop(columns=['cpf_key'])
-    pnp_cota = pnp_cota.drop(columns=['cpf_key'])
+        resultados['renda'] = pnp_renda.drop(columns=['cpf_key'])
 
-    return pnp_etnia, pnp_renda, pnp_cota
+    # ---- COTAS ----
+    if file_cota is not None:
+        pnp_cota = pd.read_excel(file_cota, dtype={'CPF': str})
+        pnp_cota['cpf_key'] = pnp_cota['CPF'].astype(str).str.replace(r'\D', '', regex=True)
+
+        dados_qa['cota_formatada'] = dados_qa['Desc_Forma_Ingresso_Matricula'].map(map_cota)
+        lookup_cota = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['cota_formatada']
+
+        if 'Cota' in pnp_cota.columns:
+            pnp_cota['Cota'] = pnp_cota['Cota'].fillna(pnp_cota['cpf_key'].map(lookup_cota)).fillna('')
+        else:
+            pnp_cota['Cota'] = pnp_cota['cpf_key'].map(lookup_cota).fillna('')
+
+        resultados['cota'] = pnp_cota.drop(columns=['cpf_key'])
+
+    return resultados
 
 
-# Função para converter DataFrame para Excel em memória (bytes)
 @st.cache_data
 def to_excel(df):
     output = io.BytesIO()
@@ -117,59 +119,82 @@ def to_excel(df):
 # --- INTERFACE DO USUÁRIO (FRONTEND) ---
 st.subheader("1. Upload dos Arquivos (.xlsx)")
 
-col1, col2 = st.columns(2)
+# Se mudar qualquer arquivo, apaga os downloads da tela
+st.markdown("**📂 Arquivo Base (Obrigatório)**")
+file_qa = st.file_uploader("Upload 'Dados QA.xlsx'", type=["xlsx"], key="qa", on_change=limpar_resultados)
+
+st.markdown("**📁 Arquivos para Atualizar (Opcionais - Escolha pelo menos um)**")
+col1, col2, col3 = st.columns(3)
 with col1:
-    file_qa = st.file_uploader("Upload 'Dados QA.xlsx'", type=["xlsx"])
-    file_etnia = st.file_uploader("Upload 'cor_raca.xlsx'", type=["xlsx"])
+    file_etnia = st.file_uploader("Upload 'cor_raca.xlsx'", type=["xlsx"], key="etnia_file",
+                                  on_change=limpar_resultados)
 with col2:
-    file_renda = st.file_uploader("Upload 'renda.xlsx'", type=["xlsx"])
-    file_cota = st.file_uploader("Upload 'cotas.xlsx'", type=["xlsx"])
+    file_renda = st.file_uploader("Upload 'renda.xlsx'", type=["xlsx"], key="renda_file", on_change=limpar_resultados)
+with col3:
+    file_cota = st.file_uploader("Upload 'cotas.xlsx'", type=["xlsx"], key="cota_file", on_change=limpar_resultados)
 
-# Verifica se todos os arquivos foram enviados
-if file_qa and file_etnia and file_renda and file_cota:
-    st.success("Todos os arquivos foram carregados com sucesso!")
+# Lógica de liberação do botão
+if not file_qa:
+    st.warning(
+        "⚠️ O arquivo **'Dados QA.xlsx'** é obrigatório para realizar os cruzamentos. Faça o upload dele primeiro.")
+elif not (file_etnia or file_renda or file_cota):
+    st.info(
+        "ℹ️ Agora, faça o upload de **pelo menos um** dos arquivos complementares (Etnia, Renda ou Cotas) para processar.")
+else:
+    st.success("Arquivos prontos para processamento!")
 
-    if st.button("🚀 Processar e Gerar os Arquivos para PNP", use_container_width=True):
-        with st.spinner("Lendo arquivos Excel e cruzando dados... Isso pode levar alguns segundos."):
-
+    # BOTÃO DE PROCESSAR
+    if st.button("🚀 Processar Arquivos Selecionados", use_container_width=True):
+        with st.spinner("Cruzando os dados... Isso pode levar alguns segundos."):
             try:
-                # Chama a função de processamento
-                df_etnia, df_renda, df_cota = processar_dados(file_qa, file_etnia, file_renda, file_cota)
+                resultados_df = processar_dados(file_qa, file_etnia, file_renda, file_cota)
 
-                # Gera os arquivos Excel em memória
-                excel_etnia = to_excel(df_etnia)
-                excel_renda = to_excel(df_renda)
-                excel_cota = to_excel(df_cota)
-
-                st.subheader("2. Download dos Resultados (.xlsx)")
-                st.markdown("Os dados foram processados! Baixe as planilhas Excel geradas abaixo:")
-
-                # Botões de Download
-                st.download_button(
-                    label="📥 Baixar Fonte_PNP_Etnia_Final.xlsx",
-                    data=excel_etnia,
-                    file_name="Fonte_PNP_Etnia_Final.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-
-                st.download_button(
-                    label="📥 Baixar Fonte_PNP_Renda_Final.xlsx",
-                    data=excel_renda,
-                    file_name="Fonte_PNP_Renda_Final.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-
-                st.download_button(
-                    label="📥 Baixar Fonte_PNP_Cota_Final.xlsx",
-                    data=excel_cota,
-                    file_name="Fonte_PNP_Cota_Final.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                # Salva os arquivos prontos na "Memória" (session_state)
+                st.session_state['resultados'] = {}
+                if 'etnia' in resultados_df:
+                    st.session_state['resultados']['etnia'] = to_excel(resultados_df['etnia'])
+                if 'renda' in resultados_df:
+                    st.session_state['resultados']['renda'] = to_excel(resultados_df['renda'])
+                if 'cota' in resultados_df:
+                    st.session_state['resultados']['cota'] = to_excel(resultados_df['cota'])
 
                 st.balloons()  # Efeito visual de sucesso
-
             except Exception as e:
                 st.error(
                     f"Ocorreu um erro durante o processamento. Certifique-se de que as planilhas estão no formato correto. Erro: {e}")
-    else:
-        st.info("Por favor, faça o upload dos 4 arquivos Excel (.xlsx) para habilitar o processamento.")
+
+# --- ÁREA DE DOWNLOAD ---
+# Fica fora do botão "Processar" para não sumir quando a página recarregar
+if 'resultados' in st.session_state:
+    st.subheader("2. Download dos Resultados (.xlsx)")
+    st.markdown("Os dados solicitados foram processados! Baixe as planilhas geradas abaixo:")
+
+    resultados_excel = st.session_state['resultados']
+
+    # Gera botões de download dinamicamente conforme o que está na memória
+    if 'etnia' in resultados_excel:
+        st.download_button(
+            label="📥 Baixar Fonte_PNP_Etnia_Final.xlsx",
+            data=resultados_excel['etnia'],
+            file_name="Fonte_PNP_Etnia_Final.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="btn_dl_etnia"
+        )
+
+    if 'renda' in resultados_excel:
+        st.download_button(
+            label="📥 Baixar Fonte_PNP_Renda_Final.xlsx",
+            data=resultados_excel['renda'],
+            file_name="Fonte_PNP_Renda_Final.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="btn_dl_renda"
+        )
+
+    if 'cota' in resultados_excel:
+        st.download_button(
+            label="📥 Baixar Fonte_PNP_Cota_Final.xlsx",
+            data=resultados_excel['cota'],
+            file_name="Fonte_PNP_Cota_Final.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="btn_dl_cota"
+        )

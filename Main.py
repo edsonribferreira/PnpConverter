@@ -6,7 +6,7 @@ import io
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Processador de Dados PNP", page_icon="📊", layout="centered")
 
-st.title("📊 Processador de Dados - Etnia, Renda e Cotas")
+st.title("📊 Processador de Dados - PNP (Etnia, Renda e Cotas)")
 st.markdown("""
 Faça o upload dos arquivos **Excel (.xlsx)** originais abaixo. O sistema fará o cruzamento dos dados usando o **CPF** e gerará os arquivos **.xlxs** finais e corrigidos para download.
 """)

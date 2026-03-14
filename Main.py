@@ -44,6 +44,15 @@ map_cota = {
     'Processo Seletivo PCD4': 'LI_PCD'
 }
 
+# Lista estrita de categorias de Etnia (baseada na interface oficial)
+valores_validos_etnia = [
+    'Branca',
+    'Preta',
+    'Parda',
+    'Indígena',
+    'Amarela',
+    'Não declarada'
+]
 # --- FUNÇÕES AUXILIARES ---
 @st.cache_data
 def processar_dados(file_qa, file_etnia, file_renda, file_cota):
@@ -66,8 +75,20 @@ def processar_dados(file_qa, file_etnia, file_renda, file_cota):
     dados_qa['cota_formatada'] = dados_qa['Desc_Forma_Ingresso_Matricula'].map(map_cota)
     lookup_cota = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['cota_formatada']
 
-    # Atualizações
+    # 4. Atualizações
+
+    # ---- ETNIA ----
+    # Preenche com dados do QA ou com 'Não declarada' se estiver vazio
+    pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].fillna(pnp_etnia['cpf_key'].map(lookup_etnia)).fillna('Não declarada')
+
+    # Remove espaços em branco antes ou depois da palavra (ex: "Parda " vira "Parda")
+    pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].astype(str).str.strip()
+
+    # Validação estrita: Se o valor NÃO estiver na lista oficial, força virar 'Não declarada'
+    pnp_etnia.loc[~pnp_etnia['Cor/Raça'].isin(valores_validos_etnia), 'Cor/Raça'] = 'Não declarada'
     pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].fillna(pnp_etnia['cpf_key'].map(lookup_etnia)).fillna('Não Declarada')
+
+    # ---- RENDA E COTAS ----
     pnp_renda['Faixa de Renda'] = pnp_renda['Faixa de Renda'].fillna(pnp_renda['cpf_key'].map(lookup_renda)).fillna(
         'Não declarada')
 

@@ -72,7 +72,7 @@ def processar_dados(file_qa, file_etnia, file_renda, file_cota):
         'Não declarada')
 
     if 'Cota' in pnp_cota.columns:
-        pnp_cota['Cota'] = pnp_cota['Cota'].fillna(pnp_cota['cpf_key'].map(lookup_cota)).fillna('Não declarada')
+        pnp_cota['Cota'] = pnp_cota['Cota'].fillna(pnp_cota['cpf_key'].map(lookup_cota)).fillna('')
     else:
         pnp_cota['Cota'] = pnp_cota['cpf_key'].map(lookup_cota).fillna('')
 

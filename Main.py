@@ -10,6 +10,14 @@ st.markdown("""
 Faça o upload do arquivo base (**Dados QA**) e escolha quais arquivos deseja atualizar (**Etnia, Renda e/ou Cotas**). O sistema cruzará os dados usando o **CPF** e gerará os arquivos corrigidos.
 """)
 
+
+# --- CONTROLE DE ESTADO (MEMÓRIA) ---
+# Função para limpar os botões de download caso o usuário troque de arquivo
+def limpar_resultados():
+    if 'resultados' in st.session_state:
+        del st.session_state['resultados']
+
+
 # --- DICIONÁRIOS DE MAPEAMENTO ---
 map_renda = {
     '1 SM < RFP <= 1,5 SM': '1,0<RFP<=1,5',
@@ -43,7 +51,6 @@ map_cota = {
     'Processo Seletivo PCD4': 'LI_PCD'
 }
 
-# Lista estrita de categorias de Etnia
 valores_validos_etnia = [
     'Branca', 'Preta', 'Parda', 'Indígena', 'Amarela', 'Não declarada'
 ]
@@ -52,7 +59,6 @@ valores_validos_etnia = [
 # --- FUNÇÕES AUXILIARES ---
 @st.cache_data
 def processar_dados(file_qa, file_etnia=None, file_renda=None, file_cota=None):
-    # Dicionário para guardar apenas os resultados gerados
     resultados = {}
 
     # 1. Carregar Dados QA (Obrigatório)
@@ -102,7 +108,6 @@ def processar_dados(file_qa, file_etnia=None, file_renda=None, file_cota=None):
     return resultados
 
 
-# Função para converter DataFrame para Excel em memória
 @st.cache_data
 def to_excel(df):
     output = io.BytesIO()
@@ -114,19 +119,19 @@ def to_excel(df):
 # --- INTERFACE DO USUÁRIO (FRONTEND) ---
 st.subheader("1. Upload dos Arquivos (.xlsx)")
 
-# Arquivo obrigatório em destaque
+# Se mudar qualquer arquivo, apaga os downloads da tela
 st.markdown("**📂 Arquivo Base (Obrigatório)**")
-file_qa = st.file_uploader("Upload 'Dados QA.xlsx'", type=["xlsx"], key="qa")
+file_qa = st.file_uploader("Upload 'Dados QA.xlsx'", type=["xlsx"], key="qa", on_change=limpar_resultados)
 
-# Arquivos opcionais lado a lado
 st.markdown("**📁 Arquivos para Atualizar (Opcionais - Escolha pelo menos um)**")
 col1, col2, col3 = st.columns(3)
 with col1:
-    file_etnia = st.file_uploader("Upload 'cor_raca.xlsx'", type=["xlsx"])
+    file_etnia = st.file_uploader("Upload 'cor_raca.xlsx'", type=["xlsx"], key="etnia_file",
+                                  on_change=limpar_resultados)
 with col2:
-    file_renda = st.file_uploader("Upload 'renda.xlsx'", type=["xlsx"])
+    file_renda = st.file_uploader("Upload 'renda.xlsx'", type=["xlsx"], key="renda_file", on_change=limpar_resultados)
 with col3:
-    file_cota = st.file_uploader("Upload 'cotas.xlsx'", type=["xlsx"])
+    file_cota = st.file_uploader("Upload 'cotas.xlsx'", type=["xlsx"], key="cota_file", on_change=limpar_resultados)
 
 # Lógica de liberação do botão
 if not file_qa:
@@ -138,42 +143,58 @@ elif not (file_etnia or file_renda or file_cota):
 else:
     st.success("Arquivos prontos para processamento!")
 
+    # BOTÃO DE PROCESSAR
     if st.button("🚀 Processar Arquivos Selecionados", use_container_width=True):
         with st.spinner("Cruzando os dados... Isso pode levar alguns segundos."):
             try:
-                # Processa dinamicamente só os arquivos enviados
-                resultados = processar_dados(file_qa, file_etnia, file_renda, file_cota)
+                resultados_df = processar_dados(file_qa, file_etnia, file_renda, file_cota)
 
-                st.subheader("2. Download dos Resultados (.xlsx)")
-                st.markdown("Os dados solicitados foram processados! Baixe as planilhas geradas abaixo:")
-
-                # Gera botões de download dinamicamente conforme o que foi gerado
-                if 'etnia' in resultados:
-                    st.download_button(
-                        label="📥 Baixar Fonte_PNP_Etnia_Final.xlsx",
-                        data=to_excel(resultados['etnia']),
-                        file_name="Fonte_PNP_Etnia_Final.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-
-                if 'renda' in resultados:
-                    st.download_button(
-                        label="📥 Baixar Fonte_PNP_Renda_Final.xlsx",
-                        data=to_excel(resultados['renda']),
-                        file_name="Fonte_PNP_Renda_Final.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-
-                if 'cota' in resultados:
-                    st.download_button(
-                        label="📥 Baixar Fonte_PNP_Cota_Final.xlsx",
-                        data=to_excel(resultados['cota']),
-                        file_name="Fonte_PNP_Cota_Final.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+                # Salva os arquivos prontos na "Memória" (session_state)
+                st.session_state['resultados'] = {}
+                if 'etnia' in resultados_df:
+                    st.session_state['resultados']['etnia'] = to_excel(resultados_df['etnia'])
+                if 'renda' in resultados_df:
+                    st.session_state['resultados']['renda'] = to_excel(resultados_df['renda'])
+                if 'cota' in resultados_df:
+                    st.session_state['resultados']['cota'] = to_excel(resultados_df['cota'])
 
                 st.balloons()  # Efeito visual de sucesso
-
             except Exception as e:
                 st.error(
                     f"Ocorreu um erro durante o processamento. Certifique-se de que as planilhas estão no formato correto. Erro: {e}")
+
+# --- ÁREA DE DOWNLOAD ---
+# Fica fora do botão "Processar" para não sumir quando a página recarregar
+if 'resultados' in st.session_state:
+    st.subheader("2. Download dos Resultados (.xlsx)")
+    st.markdown("Os dados solicitados foram processados! Baixe as planilhas geradas abaixo:")
+
+    resultados_excel = st.session_state['resultados']
+
+    # Gera botões de download dinamicamente conforme o que está na memória
+    if 'etnia' in resultados_excel:
+        st.download_button(
+            label="📥 Baixar Fonte_PNP_Etnia_Final.xlsx",
+            data=resultados_excel['etnia'],
+            file_name="Fonte_PNP_Etnia_Final.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="btn_dl_etnia"
+        )
+
+    if 'renda' in resultados_excel:
+        st.download_button(
+            label="📥 Baixar Fonte_PNP_Renda_Final.xlsx",
+            data=resultados_excel['renda'],
+            file_name="Fonte_PNP_Renda_Final.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="btn_dl_renda"
+        )
+
+    if 'cota' in resultados_excel:
+        st.download_button(
+            label="📥 Baixar Fonte_PNP_Cota_Final.xlsx",
+            data=resultados_excel['cota'],
+            file_name="Fonte_PNP_Cota_Final.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="btn_dl_cota"
+        )

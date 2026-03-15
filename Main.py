@@ -12,7 +12,6 @@ Faça o upload do arquivo base (**Dados QA**) e escolha quais arquivos deseja at
 
 
 # --- CONTROLE DE ESTADO (MEMÓRIA) ---
-# Função para limpar os botões de download caso o usuário troque de arquivo
 def limpar_resultados():
     if 'resultados' in st.session_state:
         del st.session_state['resultados']
@@ -57,7 +56,23 @@ valores_validos_etnia = [
 
 
 # --- FUNÇÕES AUXILIARES ---
-@st.cache_data
+@st.cache_data(show_spinner=False)
+def gerar_modelo_qa():
+    """Gera uma planilha de modelo do Dados QA para o usuário baixar."""
+    modelo_df = pd.DataFrame({
+        'CPF': ['12345678900', '09876543211'],
+        'Desc_Cor': ['Parda', 'Branca'],
+        'Renda Familiar Per Capita SIG': ['1 SM < RFP <= 1,5 SM', 'RFP <= 0,5 SM'],
+        'Desc_Forma_Ingresso_Matricula': ['Processo Seletivo - Ampla Concorrência', 'Processo Seletivo C1 PPI']
+    })
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        modelo_df.to_excel(writer, index=False, sheet_name='Modelo_QA')
+    return output.getvalue()
+
+
+@st.cache_data(show_spinner=False)
 def processar_dados(file_qa, file_etnia=None, file_renda=None, file_cota=None):
     resultados = {}
 
@@ -108,7 +123,7 @@ def processar_dados(file_qa, file_etnia=None, file_renda=None, file_cota=None):
     return resultados
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def to_excel(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -117,21 +132,37 @@ def to_excel(df):
 
 
 # --- INTERFACE DO USUÁRIO (FRONTEND) ---
-st.subheader("1. Upload dos Arquivos (.xlsx)")
 
-# Se mudar qualquer arquivo, apaga os downloads da tela
-st.markdown("**📂 Arquivo Base (Obrigatório)**")
-file_qa = st.file_uploader("Upload 'Dados QA.xlsx'", type=["xlsx"], key="qa", on_change=limpar_resultados)
+# Botão de modelo e Upload do QA
 
-st.markdown("**📁 Arquivos para Atualizar (Opcionais - Escolha pelo menos um)**")
+st.subheader("1. Download do Modelo para inserir os dados do Q-Acadêmico")
+# Exibe o botão de download do modelo em uma linha amigável
+st.download_button(
+    label="📄 Baixar Planilha Modelo 'Dados QA'",
+    data=gerar_modelo_qa(),
+    file_name="Modelo_Dados_QA.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    help="Baixe este arquivo para ver quais colunas o sistema espera no 'Dados QA'."
+)
+
+st.subheader("2. Upload dos Arquivos (.xlsx)")
+st.markdown("##### **📂 Arquivo Dados QA (Obrigatório)**")
+file_qa = st.file_uploader("Inserir Planilha 'Dados QA.xlsx'", type=["xlsx"], key="qa", on_change=limpar_resultados)
+
+st.divider()
+
+st.markdown("##### **📁 Arquivos para Atualizar (Opcionais - Escolha pelo menos um)**")
+st.warning(
+        "⚠️ Utilize as planilhas extraídas da PNP")
+
 col1, col2, col3 = st.columns(3)
 with col1:
-    file_etnia = st.file_uploader("Upload 'cor_raca.xlsx'", type=["xlsx"], key="etnia_file",
+    file_etnia = st.file_uploader("Inserir Planilha 'cor_raca.xlsx'", type=["xlsx"], key="etnia_file",
                                   on_change=limpar_resultados)
 with col2:
-    file_renda = st.file_uploader("Upload 'renda.xlsx'", type=["xlsx"], key="renda_file", on_change=limpar_resultados)
+    file_renda = st.file_uploader("Inserir Planilha 'renda.xlsx'", type=["xlsx"], key="renda_file", on_change=limpar_resultados)
 with col3:
-    file_cota = st.file_uploader("Upload 'cotas.xlsx'", type=["xlsx"], key="cota_file", on_change=limpar_resultados)
+    file_cota = st.file_uploader("Inserir Planilha 'cotas.xlsx'", type=["xlsx"], key="cota_file", on_change=limpar_resultados)
 
 # Lógica de liberação do botão
 if not file_qa:
@@ -164,9 +195,8 @@ else:
                     f"Ocorreu um erro durante o processamento. Certifique-se de que as planilhas estão no formato correto. Erro: {e}")
 
 # --- ÁREA DE DOWNLOAD ---
-# Fica fora do botão "Processar" para não sumir quando a página recarregar
 if 'resultados' in st.session_state:
-    st.subheader("2. Download dos Resultados (.xlsx)")
+    st.subheader("3. Download dos Resultados (.xlsx)")
     st.markdown("Os dados solicitados foram processados! Baixe as planilhas geradas abaixo:")
 
     resultados_excel = st.session_state['resultados']
@@ -198,3 +228,8 @@ if 'resultados' in st.session_state:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key="btn_dl_cota"
         )
+st.divider()
+print("")
+print("")
+print("")
+st.markdown("💻 *Edson Ferreira - 2026*" )

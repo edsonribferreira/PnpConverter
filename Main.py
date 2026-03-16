@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import io
+import numpy as np
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Processador de Dados PNP", page_icon="📊", layout="centered")
@@ -98,7 +99,9 @@ map_cota = {
     'Processo Seletivo PCD4': 'LI_PCD'
 }
 
-valores_validos_etnia = ['Branca', 'Preta', 'Parda', 'Indígena', 'Amarela', 'Não declarada']
+# --- LISTAS E DICIONÁRIOS ---
+# Adicionamos o vazio ('') como válido para o sistema aceitar CPFs não encontrados
+valores_validos_etnia = ['Branca', 'Preta', 'Parda', 'Indígena', 'Amarela', 'Não declarada', '']
 
 # --- FUNÇÕES AUXILIARES ---
 @st.cache_data(show_spinner=False)
@@ -114,39 +117,76 @@ def gerar_modelo_qa():
         modelo_df.to_excel(writer, index=False, sheet_name='Modelo_QA')
     return output.getvalue()
 
+
 @st.cache_data(show_spinner=False)
 def processar_dados(file_qa, file_etnia=None, file_renda=None, file_cota=None):
     resultados = {}
 
+    # 1. Carregar Dados QA (Obrigatório)
     dados_qa = pd.read_excel(file_qa, dtype={'CPF': str})
     dados_qa['cpf_key'] = dados_qa['CPF'].astype(str).str.replace(r'\D', '', regex=True).str.zfill(11)
 
+    # ---- ETNIA ----
     if file_etnia is not None:
         pnp_etnia = pd.read_excel(file_etnia, dtype={'CPF': str})
         pnp_etnia['cpf_key'] = pnp_etnia['CPF'].astype(str).str.replace(r'\D', '', regex=True).str.zfill(11)
-        lookup_etnia = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['Desc_Cor']
-        pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].fillna(pnp_etnia['cpf_key'].map(lookup_etnia)).fillna('Não declarada')
-        pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].astype(str).str.strip()
-        pnp_etnia.loc[~pnp_etnia['Cor/Raça'].isin(valores_validos_etnia), 'Cor/Raça'] = 'Não declarada'
+
+        # [NOVIDADE]: Se o aluno ESTÁ no QA, mas a etnia lá está vazia, vira 'Não declarada'
+        dados_qa['Desc_Cor_Tratada'] = dados_qa['Desc_Cor'].fillna('Não declarada')
+        lookup_etnia = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['Desc_Cor_Tratada']
+
+        if 'Cor/Raça' in pnp_etnia.columns:
+            pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].astype(str).str.strip()
+            pnp_etnia.loc[
+                pnp_etnia['Cor/Raça'].str.lower().isin(['nan', 'não declarada', 'none', '']), 'Cor/Raça'] = np.nan
+
+            # Preenche com QA. Se o CPF não existir no QA, deixa VAZIO ('')
+            pnp_etnia['Cor/Raça'] = pnp_etnia['Cor/Raça'].fillna(pnp_etnia['cpf_key'].map(lookup_etnia)).fillna('')
+        else:
+            pnp_etnia['Cor/Raça'] = pnp_etnia['cpf_key'].map(lookup_etnia).fillna('')
+
+        pnp_etnia.loc[~pnp_etnia['Cor/Raça'].isin(valores_validos_etnia), 'Cor/Raça'] = ''
         resultados['etnia'] = pnp_etnia.drop(columns=['cpf_key'])
 
+    # ---- RENDA ----
     if file_renda is not None:
         pnp_renda = pd.read_excel(file_renda, dtype={'CPF': str})
         pnp_renda['cpf_key'] = pnp_renda['CPF'].astype(str).str.replace(r'\D', '', regex=True).str.zfill(11)
-        dados_qa['renda_formatada'] = dados_qa['Renda Familiar Per Capita SIG'].map(map_renda)
+
+        # [NOVIDADE]: Mapeia a renda. Se o aluno ESTÁ no QA, mas o resultado for vazio, vira 'Não declarada'
+        dados_qa['renda_formatada'] = dados_qa['Renda Familiar Per Capita SIG'].map(map_renda).fillna('Não declarada')
         lookup_renda = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['renda_formatada']
-        pnp_renda['Faixa de Renda'] = pnp_renda['Faixa de Renda'].fillna(pnp_renda['cpf_key'].map(lookup_renda)).fillna('Não declarada')
+
+        if 'Faixa de Renda' in pnp_renda.columns:
+            pnp_renda['Faixa de Renda'] = pnp_renda['Faixa de Renda'].astype(str).str.strip()
+            pnp_renda.loc[pnp_renda['Faixa de Renda'].str.lower().isin(
+                ['nan', 'não declarada', 'none', '']), 'Faixa de Renda'] = np.nan
+
+            # Preenche com QA. Se o CPF não existir no QA, deixa VAZIO ('')
+            pnp_renda['Faixa de Renda'] = pnp_renda['Faixa de Renda'].fillna(
+                pnp_renda['cpf_key'].map(lookup_renda)).fillna('')
+        else:
+            pnp_renda['Faixa de Renda'] = pnp_renda['cpf_key'].map(lookup_renda).fillna('')
+
         resultados['renda'] = pnp_renda.drop(columns=['cpf_key'])
 
+    # ---- COTAS ----
     if file_cota is not None:
         pnp_cota = pd.read_excel(file_cota, dtype={'CPF': str})
         pnp_cota['cpf_key'] = pnp_cota['CPF'].astype(str).str.replace(r'\D', '', regex=True).str.zfill(11)
+
+        # Cotas não tem 'Não declarada', então se estiver vazio no QA, continua vazio
         dados_qa['cota_formatada'] = dados_qa['Desc_Forma_Ingresso_Matricula'].map(map_cota)
         lookup_cota = dados_qa.drop_duplicates(subset=['cpf_key']).set_index('cpf_key')['cota_formatada']
+
         if 'Cota' in pnp_cota.columns:
+            pnp_cota['Cota'] = pnp_cota['Cota'].astype(str).str.strip()
+            pnp_cota.loc[pnp_cota['Cota'].str.lower().isin(['nan', 'não declarada', 'none', '']), 'Cota'] = np.nan
+
             pnp_cota['Cota'] = pnp_cota['Cota'].fillna(pnp_cota['cpf_key'].map(lookup_cota)).fillna('')
         else:
             pnp_cota['Cota'] = pnp_cota['cpf_key'].map(lookup_cota).fillna('')
+
         resultados['cota'] = pnp_cota.drop(columns=['cpf_key'])
 
     return resultados

@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1c5032c0-7f30-4956-9e07-b6fcff4c4c07" name="Changes" comment="Cria o código principal." />
+    <list default="true" id="1c5032c0-7f30-4956-9e07-b6fcff4c4c07" name="Changes" comment="Cria o código principal.">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Main.py" beforeDir="false" afterPath="$PROJECT_DIR$/Main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -55,7 +59,7 @@
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "ai.playground.ignore.import.keys.banner.in.settings": "true",
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "TestExcelInput",
+    "git-widget-placeholder": "ChecagemDadoNaoDeclarado",
     "junie.onboarding.icon.badge.shown": "true",
     "last_opened_file_path": "/Users/edsonferreira/Library/CloudStorage/OneDrive-Pessoal/PUCPR/Módulo Verão 2026/DevOps/PnpConverter/.venv",
     "node.js.detected.package.eslint": "true",

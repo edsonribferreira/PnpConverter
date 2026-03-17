@@ -3,34 +3,6 @@ import streamlit as st
 import io
 import numpy as np
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Processador de Dados PNP", page_icon="📊", layout="centered")
-
-# --- MENU LATERAL (AJUDA E MANUAL) ---
-with st.sidebar:
-    st.header("📖 Ajuda e Instruções")
-    st.markdown(
-        "Dúvidas sobre como usar o sistema ou sobre as regras de cruzamento? Baixe o manual completo da ferramenta:")
-
-    # Tenta ler o arquivo PDF salvo na mesma pasta
-    try:
-        with open("Manual_PNP.pdf", "rb") as pdf_file:
-            pdf_bytes = pdf_file.read()
-
-        st.download_button(
-            label="📥 Baixar Manual em PDF",
-            data=pdf_bytes,
-            file_name="Manual_Processador_PNP.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
-    except FileNotFoundError:
-        # Se você esquecer de colocar o PDF na pasta, o sistema não quebra, só avisa:
-        st.warning("⚠️ O arquivo 'Manual_PNP.pdf' não foi encontrado na pasta do sistema.")
-
-    st.divider()
-    st.caption("Desenvolvido para uso dos RA`s do Instituto Federal Fluminense.")
-
 # --- CUSTOMIZAÇÃO CSS ---
 st.markdown("""
     <style>
@@ -83,6 +55,35 @@ st.title("📊 Processador de Dados - PNP")
 st.markdown("""
 Faça o upload do arquivo base (**Dados QA**) e escolha quais arquivos deseja atualizar (**Etnia, Renda e/ou Cotas**). O sistema cruzará os dados usando o **CPF** e gerará os arquivos corrigidos.
 """)
+
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="Processador de Dados PNP", page_icon="📊", layout="centered")
+
+# --- MENU LATERAL (AJUDA E MANUAL) ---
+with st.sidebar:
+    st.header("📖 Ajuda e Instruções")
+    st.markdown(
+        "Dúvidas sobre como usar o sistema ou sobre as regras de cruzamento? Baixe o manual completo da ferramenta:")
+
+    # Tenta ler o arquivo PDF salvo na mesma pasta
+    try:
+        with open("Manual_PNP.pdf", "rb") as pdf_file:
+            pdf_bytes = pdf_file.read()
+
+        st.download_button(
+            label="📥 Baixar Manual em PDF",
+            data=pdf_bytes,
+            file_name="Manual_Processador_PNP.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    except FileNotFoundError:
+        # Se você esquecer de colocar o PDF na pasta, o sistema não quebra, só avisa:
+        st.warning("⚠️ O arquivo 'Manual_PNP.pdf' não foi encontrado na pasta do sistema.")
+
+    st.divider()
+    st.caption("Desenvolvido para uso dos RA`s do Instituto Federal Fluminense.")
+
 
 # --- CONTROLE DE ESTADO (MEMÓRIA AVANÇADA) ---
 if "uploader_key" not in st.session_state:

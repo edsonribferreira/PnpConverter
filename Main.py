@@ -33,6 +33,14 @@ with st.sidebar:
 
 # --- CUSTOMIZAÇÃO CSS ---
 st.markdown("""
+/* Esconde o botão do GitHub / Deploy */
+    .stAppDeployButton {visibility: hidden;}
+    
+    /* (Opcional) Esconde o menu de três pontinhos do Streamlit */
+    #MainMenu {visibility: hidden;}
+    
+    /* (Opcional) Esconde o cabeçalho inteiro com a faixa de decoração */
+    header {visibility: hidden;}
     <style>
     /* 1. Botões de Download (Verdes) */
     div.stDownloadButton > button {

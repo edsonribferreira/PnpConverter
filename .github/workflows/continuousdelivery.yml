@@ -18,6 +18,8 @@ jobs:
           name: projetozipado.zip
           path: |
             **.py
+            Manual_PNP.pdf
+            requitements.txt
           
 
   deploy:

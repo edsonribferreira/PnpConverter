@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1c5032c0-7f30-4956-9e07-b6fcff4c4c07" name="Changes" comment="Cria o código principal.">
+      <change beforePath="$PROJECT_DIR$/.github/workflows/continuousdelivery.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/continuousdelivery.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.github/workflows/continuousintegration.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/continuousintegration.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
@@ -97,7 +98,7 @@
       <updated>1773487090864</updated>
       <workItem from="1773487091866" duration="1395000" />
       <workItem from="1773488494783" duration="9831000" />
-      <workItem from="1775215167085" duration="1376000" />
+      <workItem from="1775215167085" duration="1708000" />
     </task>
     <task id="LOCAL-00001" summary="Cria o código principal.">
       <option name="closed" value="true" />

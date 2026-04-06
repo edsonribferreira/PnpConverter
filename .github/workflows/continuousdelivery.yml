@@ -19,7 +19,7 @@ jobs:
           path: |
             **.py
             Manual_PNP.pdf
-            requitements.txt
+            requirements.txt
           
 
   deploy:

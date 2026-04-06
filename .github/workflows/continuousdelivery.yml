@@ -17,8 +17,8 @@ jobs:
         with:
           name: projetozipado.zip
           path: |
-            '**.py'
-            README.md
+            **.py
+          
 
   deploy:
     runs-on: ubuntu-latest

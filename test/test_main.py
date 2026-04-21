@@ -119,15 +119,19 @@ def test_processamento_completo_sucesso():
     file_renda = criar_excel_memoria(df_renda)
     file_cota = criar_excel_memoria(df_cota)
 
-    # 2. Inicia o App e simula os Uploads
+   # 2. Inicia o App
     at = AppTest.from_file(CAMINHO_APP).run()
-    at.file_uploader("qa_1").set_value(file_qa)
-    at.file_uploader("etnia_1").set_value(file_etnia)
-    at.file_uploader("renda_1").set_value(file_renda)
-    at.file_uploader("cota_1").set_value(file_cota)
+    
+    # Passa uma tupla explícita: ("Nome do Arquivo", dados_em_bytes)
+    at.file_uploader("qa_1").set_value(("qa.xlsx", file_qa.getvalue()))
+    at.file_uploader("etnia_1").set_value(("etnia.xlsx", file_etnia.getvalue()))
+    at.file_uploader("renda_1").set_value(("renda.xlsx", file_renda.getvalue()))
+    at.file_uploader("cota_1").set_value(("cota.xlsx", file_cota.getvalue()))
 
     # 3. Simula o clique no botão "Processar"
-    at.button("🚀 Processar Arquivos Selecionados").click()
+    # Encontra o botão pelo label e usa o .run() para processar a ação no backend
+    botao_processar = next(btn for btn in at.button if "Processar Arquivos" in btn.label)
+    botao_processar.click().run()
 
     # 4. Valida se os arquivos foram gerados (Se chegou até aqui, processou sem crash)
     assert len(at.session_state['resultados']) > 0

@@ -17,7 +17,7 @@ def test_limpar_tudo():
 
 
 
-def testar_gerar_modelo_qa():
+def test_gerar_modelo_qa():
     resultado = app.gerar_modelo_qa()
     assert isinstance(resultado, bytes)
     
@@ -34,7 +34,7 @@ def testar_gerar_modelo_qa():
     
     
     # --- FUNÇÃO AUXILIAR ---
-def criar_excel_memoria(df):
+def test_criar_excel_memoria(df):
     """Converte um DataFrame para um arquivo Excel em memória."""
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:

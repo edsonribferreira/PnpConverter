@@ -66,4 +66,4 @@ jobs:
 
     - name: Run unit and integration tests
       run: |
-        pytest -n auto -m "not ui_tests"
+        pytest test/

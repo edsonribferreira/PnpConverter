@@ -34,13 +34,12 @@ def test_gerar_modelo_qa():
     
     
     # --- FUNÇÃO AUXILIAR ---
-def criar_excel_memoria(df):
-    """Converte um DataFrame para um arquivo Excel em memória."""
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False)
-    output.seek(0)
-    return output
+def criar_excel_temp(df, prefixo):
+    """Cria um arquivo Excel temporário no disco e retorna o caminho."""
+    fd, caminho = tempfile.mkstemp(suffix=".xlsx", prefix=prefixo)
+    os.close(fd) # Fecha o descritor
+    df.to_excel(caminho, index=False)
+    return caminho
 
 # --- TESTE ---
 def test_processar_dados_etnia():
@@ -104,45 +103,41 @@ def test_interface_exibe_botao_download_modelo():
     # --- TESTE DE FLOW COMPLETO (UPLOAD -> PROCESSAR -> DOWNLOAD) ---
 def test_processamento_completo_sucesso():
     # 1. Prepara os dados de teste
-    df_qa = pd.DataFrame({
-        'CPF': ['123.456.789-00'],
-        'Desc_Cor': ['Parda'],
-        'Renda Familiar Per Capita SIG': ['1,0<RFP<=1,5'],
-        'Desc_Forma_Ingresso_Matricula': ['Sisu LB_EP']
-    })
+    df_qa = pd.DataFrame({'CPF': ['123.456.789-00'], 'Desc_Cor': ['Parda'], 'Renda Familiar Per Capita SIG': ['1,0<RFP<=1,5'], 'Desc_Forma_Ingresso_Matricula': ['Sisu LB_EP']})
     df_etnia = pd.DataFrame({'CPF': ['12345678900'], 'Cor/Raça': ['']})
     df_renda = pd.DataFrame({'CPF': ['12345678900'], 'Faixa de Renda': ['']})
     df_cota = pd.DataFrame({'CPF': ['12345678900'], 'Cota': ['']})
 
-    file_qa = criar_excel_memoria(df_qa)
-    file_etnia = criar_excel_memoria(df_etnia)
-    file_renda = criar_excel_memoria(df_renda)
-    file_cota = criar_excel_memoria(df_cota)
+    # Cria os arquivos físicos temporários (Retorna os caminhos em formato string)
+    file_qa = criar_excel_temp(df_qa, "qa_")
+    file_etnia = criar_excel_temp(df_etnia, "etnia_")
+    file_renda = criar_excel_temp(df_renda, "renda_")
+    file_cota = criar_excel_temp(df_cota, "cota_")
 
-   # 2. Inicia o App
+    # 2. Inicia o App
     at = AppTest.from_file(CAMINHO_APP).run()
     
-    # Passa uma tupla explícita: ("Nome do Arquivo", dados_em_bytes)
-    at.file_uploader("qa_1").set_value(("qa.xlsx", file_qa.getvalue()))
-    at.file_uploader("etnia_1").set_value(("etnia.xlsx", file_etnia.getvalue()))
-    at.file_uploader("renda_1").set_value(("renda.xlsx", file_renda.getvalue()))
-    at.file_uploader("cota_1").set_value(("cota.xlsx", file_cota.getvalue()))
+    # Passa os caminhos dos arquivos gerados
+    at.file_uploader("qa_1").set_value(file_qa)
+    at.file_uploader("etnia_1").set_value(file_etnia)
+    at.file_uploader("renda_1").set_value(file_renda)
+    at.file_uploader("cota_1").set_value(file_cota)
+    
+    # Recarrega a tela para destravar o botão de processamento!
+    at.run()
 
     # 3. Simula o clique no botão "Processar"
-    # Encontra o botão pelo label e usa o .run() para processar a ação no backend
     botao_processar = next(btn for btn in at.button if "Processar Arquivos" in btn.label)
     botao_processar.click().run()
 
-    # 4. Valida se os arquivos foram gerados (Se chegou até aqui, processou sem crash)
+    # 4. Validação
     assert len(at.session_state['resultados']) > 0
     assert 'etnia' in at.session_state['resultados']
     assert 'renda' in at.session_state['resultados']
     assert 'cota' in at.session_state['resultados']
-
-    # 5. Valida o botão "Finalizar e Sair" (que só aparece após processar)
-    assert len(at.button) > 0
-    #botoes_finais = [btn for btn in at.button if btn.label == "Finalizar e Sair"]
-    #assert len(botoes_finais) > 0
+    
+    # 5. Valida se o botão de finalizar apareceu
+    assert any("Finalizar" in btn.label for btn in at.button)
 
 #  --- ÁREA DE DOWNLOAD ---
 def test_exibicao_botoes_download():

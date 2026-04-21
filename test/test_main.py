@@ -1,6 +1,8 @@
 import src.Main as app
 from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
+import tempfile
+import os
 import pandas as pd
 import io
 
@@ -32,6 +34,15 @@ def test_gerar_modelo_qa():
 
     assert df_resultado.shape == (2, 4)
     
+    
+    # --- FUNÇÃO AUXILIAR ---
+def criar_excel_memoria(df):
+    """Converte um DataFrame para um arquivo Excel em memória."""
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    output.seek(0)
+    return output
     
     # --- FUNÇÃO AUXILIAR ---
 def criar_excel_temp(df, prefixo):

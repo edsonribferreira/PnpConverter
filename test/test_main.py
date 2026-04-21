@@ -121,10 +121,10 @@ def test_processamento_completo_sucesso():
 
     # 2. Inicia o App e simula os Uploads
     at = AppTest.from_file(CAMINHO_APP).run()
-    at.file_uploader("Upload 'Dados QA.xlsx'").set_value(file_qa)
-    at.file_uploader("Carregar Arquivo cor_raca.xlsx").set_value(file_etnia)
-    at.file_uploader("Carregar Arquivo renda.xlsx").set_value(file_renda)
-    at.file_uploader("Carregar Arquivo cotas.xlsx").set_value(file_cota)
+    at.file_uploader("qa_1").set_value(file_qa)
+    at.file_uploader("etnia_1").set_value(file_etnia)
+    at.file_uploader("renda_1").set_value(file_renda)
+    at.file_uploader("cota_1").set_value(file_cota)
 
     # 3. Simula o clique no botão "Processar"
     at.button("🚀 Processar Arquivos Selecionados").click()

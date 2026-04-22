@@ -3,13 +3,102 @@ import streamlit as st
 import io
 
 
+# --- CUSTOMIZAÇÃO CSS ---
+st.markdown("""
+    <style>
+    /* Esconde o botão do GitHub / Deploy */
+    .stAppDeployButton {visibility: hidden;}
+    
+    /* (Opcional) Esconde o menu de três pontinhos do Streamlit */
+    #MainMenu {visibility: hidden;}
+    
+    /* (Opcional) Esconde o cabeçalho inteiro com a faixa de decoração */
+    header {visibility: hidden;}
+    /* 1. Botões de Download (Verdes) */
+    div.stDownloadButton > button {
+        background-color: #28a745 !important;
+        color: white !important;
+        border-color: #28a745 !important;
+    }
+    div.stDownloadButton > button:hover {
+        background-color: #218838 !important;
+        border-color: #1e7e34 !important;
+        color: white !important;
+    }
+    
+    /* 2. Botão Principal / Primary (Vermelho - Usado no botão de Finalizar) */
+    button[kind="primary"] {
+        background-color: #dc3545 !important;
+        color: white !important;
+        border-color: #dc3545 !important;
+    }
+    button[kind="primary"]:hover {
+        background-color: #c82333 !important;
+        border-color: #bd2130 !important;
+        color: white !important;
+    }
+
+    /* 3. Textos da Caixa de Upload */
+    div[data-testid="stFileUploader"] section button { font-size: 0 !important; }
+    div[data-testid="stFileUploader"] section button::after {
+        content: "Inserir" !important; font-size: 14px !important;
+    }
+    div[data-testid="stFileUploaderDropzoneInstructions"] > div > span { font-size: 0 !important; }
+    div[data-testid="stFileUploaderDropzoneInstructions"] > div > span::after {
+        content: "Arraste e solte o arquivo aqui" !important; font-size: 14px !important;
+    }
+    div[data-testid="stFileUploaderDropzoneInstructions"] > div > small { display: none !important; }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("📊 Processador de Dados - PNP")
+st.markdown("""
+Faça o upload do arquivo base (**Dados QA**) e escolha quais arquivos deseja atualizar (**Etnia, Renda e/ou Cotas**). O sistema cruzará os dados usando o **CPF** e gerará os arquivos corrigidos.
+""")
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Processador de Dados PNP", page_icon="📊", layout="centered")
 
-st.title("📊 Processador de Dados - PNP (Etnia, Renda e Cotas)")
-st.markdown("""
-Faça o upload dos arquivos **Excel (.xlsx)** originais abaixo. O sistema fará o cruzamento dos dados usando o **CPF** e gerará os arquivos **.xlxs** finais e corrigidos para download.
-""")
+# --- MENU LATERAL (AJUDA E MANUAL) ---
+with st.sidebar:
+    st.header("📖 Ajuda e Instruções")
+    st.markdown(
+        "Dúvidas sobre como usar o sistema ou sobre as regras de cruzamento? Baixe o manual completo da ferramenta:")
+
+    # Tenta ler o arquivo PDF salvo na mesma pasta
+    try:
+        with open("Manual_PNP.pdf", "rb") as pdf_file:
+            pdf_bytes = pdf_file.read()
+
+        st.download_button(
+            label="📥 Baixar Manual em PDF",
+            data=pdf_bytes,
+            file_name="Manual_Processador_PNP.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    except FileNotFoundError:
+        # Se você esquecer de colocar o PDF na pasta, o sistema não quebra, só avisa:
+        st.warning("⚠️ O arquivo 'Manual_PNP.pdf' não foi encontrado na pasta do sistema.")
+
+    st.divider()
+    st.caption("Desenvolvido para uso dos RA`s do Instituto Federal Fluminense.")
+
+
+# --- CONTROLE DE ESTADO (MEMÓRIA AVANÇADA) ---
+if "uploader_key" not in st.session_state:
+    st.session_state["uploader_key"] = 1
+
+def limpar_resultados():
+    """Limpa apenas os botões de download se o usuário trocar algum arquivo."""
+    if 'resultados' in st.session_state:
+        del st.session_state['resultados']
+
+def limpar_tudo():
+    """Função Callback que roda ANTES de a página recarregar para limpar TUDO."""
+    st.session_state["uploader_key"] += 1 # Muda a chave forçando os uploaders a resetarem
+    if 'resultados' in st.session_state:
+        del st.session_state['resultados']
 
 # --- DICIONÁRIOS DE MAPEAMENTO ---
 map_renda = {
